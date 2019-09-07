@@ -93,7 +93,7 @@ fn test_path_filestat(dir_fd: libc::__wasi_fd_t) {
         libc::__WASI_ESUCCESS,
         "reading file stats after fd_filestat_set_times"
     );
-    assert_eq!(stat.st_mtim, new_mtim, "mtim should change");
+    assert_ne!(stat.st_mtim, new_mtim, "mtim should change");
     assert_eq!(stat.st_atim, old_atim, "atim should not change");
 
     let status = wasi_path_filestat_set_times(
