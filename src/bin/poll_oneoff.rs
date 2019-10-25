@@ -19,10 +19,9 @@ unsafe fn poll_oneoff_impl(
         MaybeUninit::<wasi_unstable::Event>::zeroed().assume_init()
     });
     let res = wasi_unstable::poll_oneoff(&in_, out.as_mut_slice());
-    assert!(res.is_ok(), "poll_oneoff should succeed");
+    let res = res.expect("poll_oneoff should succeed");
     assert_eq!(
-        res.unwrap(),
-        nexpected,
+        res, nexpected,
         "poll_oneoff should return {} events",
         nexpected
     );
@@ -68,7 +67,9 @@ unsafe fn test_stdin_read() {
         precision: 0,
         flags: 0,
     };
-    let fd_readwrite = wasi_unstable::raw::__wasi_subscription_u_fd_readwrite_t { fd: 1 };
+    let fd_readwrite = wasi_unstable::raw::__wasi_subscription_u_fd_readwrite_t {
+        fd: wasi_unstable::STDIN_FD,
+    };
     let in_ = [
         wasi_unstable::Subscription {
             userdata: CLOCK_ID,
@@ -99,7 +100,7 @@ unsafe fn test_stdin_read() {
     );
 }
 
-unsafe fn test_fd_readwrite(fd: wasi_unstable::Fd) {
+unsafe fn test_fd_readwrite(fd: wasi_unstable::Fd, error_code: wasi_unstable::raw::__wasi_errno_t) {
     let fd_readwrite = wasi_unstable::raw::__wasi_subscription_u_fd_readwrite_t { fd };
     let in_ = [
         wasi_unstable::Subscription {
@@ -119,9 +120,9 @@ unsafe fn test_fd_readwrite(fd: wasi_unstable::Fd) {
         "the event.userdata should contain fd userdata specified by the user"
     );
     assert_eq!(
-        out[0].error,
-        wasi_unstable::raw::__WASI_ESUCCESS,
-        "the event.error should be set to ESUCCESS"
+        out[0].error, error_code,
+        "the event.error should be set to {}",
+        error_code
     );
     assert_eq!(
         out[0].type_,
@@ -133,9 +134,9 @@ unsafe fn test_fd_readwrite(fd: wasi_unstable::Fd) {
         "the event.userdata should contain fd userdata specified by the user"
     );
     assert_eq!(
-        out[1].error,
-        wasi_unstable::raw::__WASI_ESUCCESS,
-        "the event.error should be set to ESUCCESS"
+        out[1].error, error_code,
+        "the event.error should be set to {}",
+        error_code
     );
     assert_eq!(
         out[1].type_,
@@ -144,10 +145,7 @@ unsafe fn test_fd_readwrite(fd: wasi_unstable::Fd) {
     );
 }
 
-unsafe fn test_poll_oneoff(dir_fd: wasi_unstable::Fd) {
-    test_timeout();
-    test_stdin_read();
-
+unsafe fn test_fd_readwrite_valid_fd(dir_fd: wasi_unstable::Fd) {
     // Create a file in the scratch directory.
     let mut file_fd = wasi_unstable::Fd::max_value() - 1;
     let status = wasi_path_open(
@@ -171,10 +169,24 @@ unsafe fn test_poll_oneoff(dir_fd: wasi_unstable::Fd) {
         "file descriptor range check",
     );
 
-    test_fd_readwrite(file_fd);
+    test_fd_readwrite(file_fd, wasi_unstable::raw::__WASI_ESUCCESS);
 
     close_fd(file_fd);
     cleanup_file(dir_fd, "file");
+}
+
+unsafe fn test_fd_readwrite_invalid_fd() {
+    test_fd_readwrite(
+        wasi_unstable::Fd::max_value(),
+        wasi_unstable::raw::__WASI_EBADF,
+    )
+}
+
+unsafe fn test_poll_oneoff(dir_fd: wasi_unstable::Fd) {
+    test_timeout();
+    test_stdin_read();
+    test_fd_readwrite_valid_fd(dir_fd);
+    test_fd_readwrite_invalid_fd();
 }
 fn main() {
     let mut args = env::args();
