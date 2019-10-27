@@ -240,6 +240,8 @@ unsafe fn test_fd_readwrite_invalid_fd() {
 
 unsafe fn test_poll_oneoff(dir_fd: wasi_unstable::Fd) {
     test_timeout();
+    // NB we assume that stdin/stdout/stderr are valid and open
+    // for the duration of the test case
     test_stdin_read();
     test_stdout_stderr_write();
     test_fd_readwrite_valid_fd(dir_fd);
