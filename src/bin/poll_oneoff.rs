@@ -100,6 +100,62 @@ unsafe fn test_stdin_read() {
     );
 }
 
+unsafe fn test_stdout_stderr_write() {
+    let stdout_readwrite = wasi_unstable::raw::__wasi_subscription_u_fd_readwrite_t {
+        fd: wasi_unstable::STDOUT_FD,
+    };
+    let stderr_readwrite = wasi_unstable::raw::__wasi_subscription_u_fd_readwrite_t {
+        fd: wasi_unstable::STDERR_FD,
+    };
+    let in_ = [
+        wasi_unstable::Subscription {
+            userdata: 1,
+            type_: wasi_unstable::EVENTTYPE_FD_WRITE,
+            u: wasi_unstable::raw::__wasi_subscription_u {
+                fd_readwrite: stdout_readwrite,
+            },
+        },
+        wasi_unstable::Subscription {
+            userdata: 2,
+            type_: wasi_unstable::EVENTTYPE_FD_WRITE,
+            u: wasi_unstable::raw::__wasi_subscription_u {
+                fd_readwrite: stderr_readwrite,
+            },
+        },
+    ];
+    let out = poll_oneoff_impl(&in_, 2);
+    assert_eq!(
+        out[0].userdata, 1,
+        "the event.userdata should contain fd userdata specified by the user"
+    );
+    assert_eq!(
+        out[0].error,
+        wasi_unstable::raw::__WASI_ESUCCESS,
+        "the event.error should be set to {}",
+        wasi_unstable::raw::__WASI_ESUCCESS
+    );
+    assert_eq!(
+        out[0].type_,
+        wasi_unstable::EVENTTYPE_FD_WRITE,
+        "the event.type_ should equal FD_WRITE"
+    );
+    assert_eq!(
+        out[1].userdata, 2,
+        "the event.userdata should contain fd userdata specified by the user"
+    );
+    assert_eq!(
+        out[1].error,
+        wasi_unstable::raw::__WASI_ESUCCESS,
+        "the event.error should be set to {}",
+        wasi_unstable::raw::__WASI_ESUCCESS
+    );
+    assert_eq!(
+        out[1].type_,
+        wasi_unstable::EVENTTYPE_FD_WRITE,
+        "the event.type_ should equal FD_WRITE"
+    );
+}
+
 unsafe fn test_fd_readwrite(fd: wasi_unstable::Fd, error_code: wasi_unstable::raw::__wasi_errno_t) {
     let fd_readwrite = wasi_unstable::raw::__wasi_subscription_u_fd_readwrite_t { fd };
     let in_ = [
@@ -185,6 +241,7 @@ unsafe fn test_fd_readwrite_invalid_fd() {
 unsafe fn test_poll_oneoff(dir_fd: wasi_unstable::Fd) {
     test_timeout();
     test_stdin_read();
+    test_stdout_stderr_write();
     test_fd_readwrite_valid_fd(dir_fd);
     test_fd_readwrite_invalid_fd();
 }
